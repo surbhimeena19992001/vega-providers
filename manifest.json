@@ -21,7 +21,7 @@
     "name": "TG TV",
     "display_name": "TG TV",
     "value": "tgtv",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "icon": "",
     "type": "global",
     "disabled": false

@@ -7,10 +7,13 @@ import { getStream } from "./stream";
 const tgtv: ProviderType = {
   catalog,
   genres,
-  GetHomePosts: getPosts,
-  GetSearchPosts: getSearchPosts,
+  GetHomePosts: ({ filter, page, signal, providerValue, providerContext }) =>
+    getPosts({ filter, page, signal, providerValue, providerContext }),
+  GetSearchPosts: ({ searchQuery, page, signal, providerValue, providerContext }) =>
+    getSearchPosts({ searchQuery, page, signal, providerValue, providerContext }),
   GetMetaData: ({ link, providerContext }) => getMeta({ link, providerContext }),
-  GetStream: getStream,
+  GetStream: ({ link, type, signal, providerContext, isDownload }) =>
+    getStream({ link, type, signal: signal || new AbortController().signal, providerContext, isDownload }),
 };
 
 export default tgtv;

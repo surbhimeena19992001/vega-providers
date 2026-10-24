@@ -1,10 +1,10 @@
-# TG TV (HLS-only)
+# TG TV — HLS-only provider
 
-This Vega provider integrates the TG TV public API's 24/7 channel list and playback endpoints.
+This provider uses the public TG TV v2 API for 24/7 channels.
 
-- Uses `/api/public/v2/channels` and `/api/public/v2/channels/{id}`.
-- Supports direct HTTP(S) HLS `.m3u8` links only.
-- Does not process encrypted DASH, extract DRM keys, or proxy/decrypt protected streams.
-- Use streams only where you have permission to access and redistribute them.
+- Lists channels from `/api/public/v2/channels`.
+- Resolves playback servers from `/api/public/v2/channels/{id}`.
+- Returns HTTP(S) relay URLs as HLS (`m3u8`) sources.
+- Does not handle encrypted DASH or DRM keys.
 
-The upstream API documentation is available at https://livetgtv.lovable.app/docs.
+Use only streams you are authorized to access. Upstream availability and playback may change independently of Vega.

@@ -4,24 +4,6 @@ function isPlayable(url: string): boolean {
   return /\.(m3u8|mp4|mpd|webm|m4v)(\?|#|$)/i.test(url);
 }
 
-function b64decode(input: string): string {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
-  let s = String(input || "").replace(/[^A-Za-z0-9+/=]/g, "");
-  let out = "";
-  let i = 0;
-  while (i < s.length) {
-    const e1 = chars.indexOf(s.charAt(i++));
-    const e2 = chars.indexOf(s.charAt(i++));
-    const e3 = chars.indexOf(s.charAt(i++));
-    const e4 = chars.indexOf(s.charAt(i++));
-    if (e1 < 0 || e2 < 0) break;
-    out += String.fromCharCode((e1 << 2) | (e2 >> 4));
-    if (e3 !== 64 && e3 >= 0) out += String.fromCharCode(((e2 & 15) << 4) | (e3 >> 2));
-    if (e4 !== 64 && e4 >= 0) out += String.fromCharCode(((e3 & 3) << 6) | e4);
-  }
-  return out;
-}
-
 function collectMediaUrls(html: string, base: string): string[] {
   const out = new Set<string>();
 
@@ -39,17 +21,6 @@ function collectMediaUrls(html: string, base: string): string[] {
     if (isPlayable(m[0])) out.add(m[0]);
   }
 
-  const b64Re = /(?:atob\s*\(\s*["']|["'])([A-Za-z0-9+/=]{40,})(?:["']\s*\)|["'])/g;
-  while ((m = b64Re.exec(html)) !== null) {
-    try {
-      const decoded = b64decode(m[1]);
-      if (isPlayable(decoded)) {
-        try { out.add(new URL(decoded, base).toString()); }
-        catch { out.add(decoded); }
-      }
-    } catch {}
-  }
-
   return Array.from(out);
 }
 
@@ -63,6 +34,12 @@ function collectIframes(html: string, base: string): string[] {
   return Array.from(out);
 }
 
+/* ---------- helper: normalise cookie header ---------- */
+function extractCookies(setCookie: string[] | undefined): string {
+  if (!setCookie || !Array.isArray(setCookie)) return "";
+  return setCookie.map((c) => c.split(";")[0]).join("; ");
+}
+
 export async function multimoviesExtractor(
   embedUrl: string,
   signal: AbortSignal,
@@ -73,27 +50,43 @@ export async function multimoviesExtractor(
   const streams: Stream[] = [];
 
   try {
+    /* 1. fetch the embed page and keep its cookies */
     const res = await axios.get(embedUrl, { headers, signal, timeout: 15000 });
     const html = String(res.data || "");
+    const cookieHeader = extractCookies(res.headers?.["set-cookie"]);
 
+    /* 2. collect any direct media URLs */
     for (const url of collectMediaUrls(html, embedUrl)) {
       streams.push({
         server: serverName,
         link: url,
         type: /\.m3u8/i.test(url) ? "m3u8" : /\.mpd/i.test(url) ? "mpd" : "mp4",
+        headers: {
+          Referer: embedUrl,
+          Origin: new URL(embedUrl).origin,
+          ...(cookieHeader ? { Cookie: cookieHeader } : {}),
+        },
       });
     }
 
+    /* 3. if nothing found, follow one level of iframes */
     if (streams.length === 0) {
       for (const iframeUrl of collectIframes(html, embedUrl).slice(0, 2)) {
         try {
           const inner = await axios.get(iframeUrl, { headers, signal, timeout: 12000 });
           const innerHtml = String(inner.data || "");
+          const innerCookies = extractCookies(inner.headers?.["set-cookie"]);
+
           for (const url of collectMediaUrls(innerHtml, iframeUrl)) {
             streams.push({
               server: serverName,
               link: url,
               type: /\.m3u8/i.test(url) ? "m3u8" : /\.mpd/i.test(url) ? "mpd" : "mp4",
+              headers: {
+                Referer: iframeUrl,
+                Origin: new URL(iframeUrl).origin,
+                ...(innerCookies ? { Cookie: innerCookies } : {}),
+              },
             });
           }
           if (streams.length > 0) break;

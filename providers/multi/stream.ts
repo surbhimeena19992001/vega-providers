@@ -13,6 +13,7 @@ interface ServerEntry {
   url: string;
 }
 
+/* ---------- improved server discovery ---------- */
 function parseServers(html: string, cheerio: any): ServerEntry[] {
   const out: ServerEntry[] = [];
   const seen = new Set<string>();
@@ -25,37 +26,52 @@ function parseServers(html: string, cheerio: any): ServerEntry[] {
 
   try {
     const $ = cheerio.load(html, { decodeEntities: false }, false);
+
+    // 1. Look for every common server-button pattern
     const selectors = [
       "button.server-chip[data-url]",
       "#playerServerGrid button[data-url]",
       ".server-grid button[data-url]",
       "[data-url][data-server-index]",
       "button[data-url]",
+      "a[data-url]",
+      ".server-list a[data-url]",
     ];
-    let nodes: any = null;
+
     for (const sel of selectors) {
-      const found = $(sel);
-      if (found && found.length > 0) { nodes = found; break; }
-    }
-    if (nodes) {
-      nodes.each((_: number, el: any) => {
-        const $el = $(el);
-        const url = String($el.attr("data-url") || "").trim();
-        if (!url) return;
-        let name = "";
-        try { name = String($el.find(".server-name").text() || "").trim(); } catch {}
-        push(url, name || $el.attr("data-id") || "Server");
-      });
+      const nodes = $(sel);
+      if (nodes && nodes.length > 0) {
+        nodes.each((_: number, el: any) => {
+          const $el = $(el);
+          const url = String($el.attr("data-url") || "").trim();
+          if (!url) return;
+          let name = "";
+          try {
+            name = String($el.find(".server-name").text() || "").trim();
+          } catch {}
+          push(url, name || $el.attr("data-id") || "Server");
+        });
+      }
     }
   } catch {}
 
+  // 2. Regex fallback for any element that carries a data-url
   if (out.length === 0) {
-    const re = /<button[^>]*\bdata-url\s*=\s*"([^"]+)"[^>]*>([\s\S]*?)<\/button>/gi;
+    const re = /<[^>]+data-url\s*=\s*"([^"]+)"[^>]*>/gi;
     let m: RegExpExecArray | null;
     while ((m = re.exec(html)) !== null) {
       const url = String(m[1] || "").trim();
-      const nameM = (m[2] || "").match(/class\s*=\s*"server-name"[^>]*>([^<]*)</i);
-      push(url, nameM ? nameM[1].trim() : "Server");
+      if (url) push(url, "Server");
+    }
+  }
+
+  // 3. Last resort: look for any iframe src that looks like a player
+  if (out.length === 0) {
+    const iframeRe = /<iframe[^>]+src\s*=\s*"([^"]+)"/gi;
+    let m: RegExpExecArray | null;
+    while ((m = iframeRe.exec(html)) !== null) {
+      const url = String(m[1] || "").trim();
+      if (/vidrift|embed|player|stream/i.test(url)) push(url, "Player");
     }
   }
 
@@ -92,6 +108,7 @@ export async function getStream({
     }];
   }
 
+  /* ---- 1. load the episode page ---- */
   let html = "";
   try {
     const res = await axios.get(link, {
@@ -106,8 +123,10 @@ export async function getStream({
     return [];
   }
 
+  /* ---- 2. find server entries ---- */
   let servers = parseServers(html, cheerio);
 
+  /* ---- 3. if none found, look for a /watch/ page ---- */
   if (servers.length === 0) {
     const candidates: string[] = [];
     try {
@@ -142,6 +161,7 @@ export async function getStream({
     return [];
   }
 
+  /* ---- 4. resolve each server in parallel ---- */
   const allStreams: Stream[] = [];
 
   await Promise.all(servers.map(async (server) => {

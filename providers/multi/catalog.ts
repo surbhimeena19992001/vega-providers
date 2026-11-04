@@ -1,0 +1,17 @@
+export const catalog = [
+  { title: "Top Rated",        filter: "trending" },
+  { title: "Movies",           filter: "movies" },
+  { title: "TV Series",        filter: "series" },
+  { title: "Bollywood Movies", filter: "genre/bollywood-movies" },
+  { title: "Hollywood",        filter: "genre/hollywood" },
+  { title: "South Indian",     filter: "genre/south-indian" },
+  { title: "Netflix",          filter: "genre/netflix" },
+  { title: "Amazon Prime",     filter: "genre/amazon-prime" },
+  { title: "Jio Hotstar",      filter: "genre/disney-hotstar" },
+  { title: "K-Drama",          filter: "genre/k-drama" },
+  { title: "Anime Series",     filter: "genre/anime-series" },
+  { title: "Action",           filter: "genre/action" },
+  { title: "Comedy",           filter: "genre/comedy" },
+  { title: "Horror",           filter: "genre/horror" },
+  { title: "Thriller",         filter: "genre/thriller" },
+];

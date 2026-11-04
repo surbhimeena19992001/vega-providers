@@ -1,0 +1,15 @@
+{
+  "name": "vega-providers",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MultiMovies provider for Vega App and Vega Desktop",
+  "license": "ISC",
+  "scripts": {
+    "build": "node build-bundled.js",
+    "test": "node tests/test-providers.js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "terser": "^5.36.0"
+  }
+}
